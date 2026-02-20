@@ -33,16 +33,30 @@ type Product struct {
 	updatedAt   time.Time
 }
 
-func NewProduct(id, name, description, category string, basePrice *Money) *Product {
-	return &Product{
+func NewProduct(id, name, description, category string, basePrice *Money, createdAt time.Time) *Product {
+	p := &Product{
 		id:          id,
 		name:        name,
 		description: description,
 		category:    category,
 		basePrice:   basePrice,
+		status:      ProductStatusInactive,
+		createdAt:   createdAt,
+		updatedAt:   createdAt,
 		changes:     ChangeTracker{dirtyFields: make(map[string]bool)},
 		events:      []DomainEvent{},
 	}
+
+	// Emit domain event
+	p.events = append(p.events, &ProductCreatedEvent{
+		ProductID: id,
+		Name:      name,
+		Category:  category,
+		BasePrice: basePrice,
+		CreatedAt: createdAt,
+	})
+
+	return p
 }
 
 // Business method (pure logic)
@@ -100,8 +114,8 @@ func (p *Product) Status() ProductStatus {
 	return p.status
 }
 
-func (p *Product) Changes() ChangeTracker {
-	return p.changes
+func (p *Product) Changes() *ChangeTracker {
+	return &p.changes
 }
 
 func (p *Product) DomainEvents() []DomainEvent {
@@ -151,29 +165,42 @@ func ReconstructProduct(
 }
 
 // UpdateDetails updates the product's name, description, and category
-func (p *Product) UpdateDetails(name, description, category string) error {
+func (p *Product) UpdateDetails(name, description, category string, now time.Time) error {
 	if p.archivedAt != nil {
 		return ErrProductAlreadyArchived
 	}
 
+	changedFields := []string{}
 	if name != p.name {
 		p.name = name
 		p.changes.MarkDirty(FieldName)
+		changedFields = append(changedFields, FieldName)
 	}
 	if description != p.description {
 		p.description = description
 		p.changes.MarkDirty(FieldDescription)
+		changedFields = append(changedFields, FieldDescription)
 	}
 	if category != p.category {
 		p.category = category
 		p.changes.MarkDirty(FieldCategory)
+		changedFields = append(changedFields, FieldCategory)
+	}
+
+	// Emit domain event if there were changes
+	if len(changedFields) > 0 {
+		p.events = append(p.events, &ProductUpdatedEvent{
+			ProductID:     p.id,
+			UpdatedAt:     now,
+			ChangedFields: changedFields,
+		})
 	}
 
 	return nil
 }
 
 // Activate activates the product
-func (p *Product) Activate() error {
+func (p *Product) Activate(now time.Time) error {
 	if p.archivedAt != nil {
 		return ErrProductAlreadyArchived
 	}
@@ -186,21 +213,20 @@ func (p *Product) Activate() error {
 	p.changes.MarkDirty(FieldStatus)
 	p.events = append(p.events, &ProductActivatedEvent{
 		ProductID:   p.id,
-		ActivatedAt: time.Now(),
+		ActivatedAt: now,
 	})
 
 	return nil
 }
 
 // Deactivate deactivates the product
-func (p *Product) Deactivate() error {
+func (p *Product) Deactivate(now time.Time) error {
 	if p.archivedAt != nil {
 		return ErrProductAlreadyArchived
 	}
 
 	// Check if product has an active discount
 	if p.discount != nil {
-		now := time.Now()
 		if p.discount.IsValidAt(now) {
 			return ErrProductHasActiveDiscount
 		}
@@ -214,7 +240,7 @@ func (p *Product) Deactivate() error {
 	p.changes.MarkDirty(FieldStatus)
 	p.events = append(p.events, &ProductDeactivatedEvent{
 		ProductID:     p.id,
-		DeactivatedAt: time.Now(),
+		DeactivatedAt: now,
 	})
 
 	return nil
@@ -237,7 +263,7 @@ func (p *Product) Archive(now time.Time) error {
 }
 
 // RemoveDiscount removes the discount from the product
-func (p *Product) RemoveDiscount() error {
+func (p *Product) RemoveDiscount(now time.Time) error {
 	if p.discount == nil {
 		return nil // No discount to remove
 	}
@@ -246,7 +272,7 @@ func (p *Product) RemoveDiscount() error {
 	p.changes.MarkDirty(FieldDiscount)
 	p.events = append(p.events, &DiscountRemovedEvent{
 		ProductID: p.id,
-		RemovedAt: time.Now(),
+		RemovedAt: now,
 	})
 
 	return nil

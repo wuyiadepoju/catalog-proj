@@ -57,6 +57,7 @@ func (i *Interactor) Execute(ctx context.Context, req *Request) (*Response, erro
 	}
 
 	// 2. Call domain method
+	now := i.clock.Now()
 	name := product.Name()
 	description := product.Description()
 	category := product.Category()
@@ -71,26 +72,8 @@ func (i *Interactor) Execute(ctx context.Context, req *Request) (*Response, erro
 		category = *req.Category
 	}
 
-	if err := product.UpdateDetails(name, description, category); err != nil {
+	if err := product.UpdateDetails(name, description, category, now); err != nil {
 		return nil, fmt.Errorf("failed to update product details: %w", err)
-	}
-
-	// Update UpdatedAt timestamp
-	now := i.clock.Now()
-	// Note: We need to update the timestamp, but UpdateDetails doesn't do this
-	// We'll handle this in the mutation
-
-	// Check for changed fields before creating mutation
-	changes := product.Changes()
-	changedFields := []string{}
-	if changes.Dirty(domain.FieldName) {
-		changedFields = append(changedFields, domain.FieldName)
-	}
-	if changes.Dirty(domain.FieldDescription) {
-		changedFields = append(changedFields, domain.FieldDescription)
-	}
-	if changes.Dirty(domain.FieldCategory) {
-		changedFields = append(changedFields, domain.FieldCategory)
 	}
 
 	// 3. Get update mutation (may be nil if no changes)
@@ -106,20 +89,6 @@ func (i *Interactor) Execute(ctx context.Context, req *Request) (*Response, erro
 		outboxMut := i.eventToOutboxMutation(event, now)
 		if outboxMut != nil {
 			plan.Add(outboxMut)
-		}
-	}
-
-	// Also add ProductUpdatedEvent manually since UpdateDetails doesn't generate it
-	// Only add if there were actual changes
-	if len(changedFields) > 0 {
-		updatedEvent := &domain.ProductUpdatedEvent{
-			ProductID:     req.ProductID,
-			UpdatedAt:     now,
-			ChangedFields: changedFields,
-		}
-		updatedOutboxMut := i.eventToOutboxMutation(updatedEvent, now)
-		if updatedOutboxMut != nil {
-			plan.Add(updatedOutboxMut)
 		}
 	}
 

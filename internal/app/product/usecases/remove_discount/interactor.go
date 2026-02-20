@@ -54,7 +54,8 @@ func (i *Interactor) Execute(ctx context.Context, req *Request) (*Response, erro
 	}
 
 	// 2. Call RemoveDiscount()
-	if err := product.RemoveDiscount(); err != nil {
+	now := i.clock.Now()
+	if err := product.RemoveDiscount(now); err != nil {
 		return nil, fmt.Errorf("failed to remove discount: %w", err)
 	}
 
@@ -66,7 +67,6 @@ func (i *Interactor) Execute(ctx context.Context, req *Request) (*Response, erro
 	}
 
 	// 4. Collect events
-	now := i.clock.Now()
 	events := product.DomainEvents()
 	for _, event := range events {
 		outboxMut := i.eventToOutboxMutation(event, now)

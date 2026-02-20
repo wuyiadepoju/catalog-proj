@@ -10,5 +10,6 @@ type Discount struct {
 }
 
 func (d *Discount) IsValidAt(now time.Time) bool {
-	return now.After(d.StartDate) && now.Before(d.EndDate)
+	// Discount is valid if now is >= StartDate and < EndDate (inclusive start, exclusive end)
+	return !now.Before(d.StartDate) && now.Before(d.EndDate)
 }

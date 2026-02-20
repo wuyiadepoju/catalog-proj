@@ -47,22 +47,13 @@ func (q *Query) Execute(ctx context.Context, req *Request) (*DTO, error) {
 	for i := range dto.Products {
 		product := &dto.Products[i]
 		
-		// Reconstruct domain product for pricing calculation
+		// Reconstruct domain product from database data (queries should use ReconstructProduct, not NewProduct)
 		var basePrice *domain.Money
 		if product.BasePrice != nil {
 			price := domain.Money(product.BasePrice)
 			basePrice = &price
 		}
 		
-		domainProduct := domain.NewProduct(
-			product.ID,
-			product.Name,
-			product.Description,
-			product.Category,
-			basePrice,
-		)
-		
-		// Apply discount if present using ReconstructProduct
 		var discount *domain.Discount
 		if product.DiscountID != nil && product.DiscountStartDate != nil && product.DiscountEndDate != nil {
 			var discountAmount *domain.Money
@@ -79,12 +70,12 @@ func (q *Query) Execute(ctx context.Context, req *Request) (*DTO, error) {
 			}
 		}
 		
-		// Reconstruct product with discount
 		status := domain.ProductStatus(product.Status)
 		if status != domain.ProductStatusActive && status != domain.ProductStatusInactive {
 			status = domain.ProductStatusInactive
 		}
-		domainProduct = domain.ReconstructProduct(
+		
+		domainProduct := domain.ReconstructProduct(
 			product.ID,
 			product.Name,
 			product.Description,

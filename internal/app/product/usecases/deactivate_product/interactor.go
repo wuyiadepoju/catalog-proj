@@ -54,7 +54,8 @@ func (i *Interactor) Execute(ctx context.Context, req *Request) (*Response, erro
 	}
 
 	// 2. Call domain method
-	if err := product.Deactivate(); err != nil {
+	now := i.clock.Now()
+	if err := product.Deactivate(now); err != nil {
 		return nil, fmt.Errorf("failed to deactivate product: %w", err)
 	}
 
@@ -66,7 +67,6 @@ func (i *Interactor) Execute(ctx context.Context, req *Request) (*Response, erro
 	}
 
 	// 4. Collect events → outbox
-	now := i.clock.Now()
 	events := product.DomainEvents()
 	for _, event := range events {
 		outboxMut := i.eventToOutboxMutation(event, now)

@@ -53,9 +53,8 @@ func (q *Query) Execute(ctx context.Context, productID string) (*DTO, error) {
 		basePrice = &price
 	}
 
-	product := domain.NewProduct(dto.ID, dto.Name, dto.Description, dto.Category, basePrice)
-
-	// Apply discount if present (using ReconstructProduct to set discount)
+	// Reconstruct product from database data (queries should use ReconstructProduct, not NewProduct)
+	var discount *domain.Discount
 	if dto.DiscountID != nil && dto.DiscountStartDate != nil && dto.DiscountEndDate != nil {
 		var discountAmount *domain.Money
 		if dto.DiscountAmount != nil {
@@ -63,31 +62,31 @@ func (q *Query) Execute(ctx context.Context, productID string) (*DTO, error) {
 			discountAmount = &amount
 		}
 
-		discount := &domain.Discount{
+		discount = &domain.Discount{
 			ID:        *dto.DiscountID,
 			Amount:    discountAmount,
 			StartDate: *dto.DiscountStartDate,
 			EndDate:   *dto.DiscountEndDate,
 		}
-
-		// Reconstruct product with discount
-		status := domain.ProductStatus(dto.Status)
-		if status != domain.ProductStatusActive && status != domain.ProductStatusInactive {
-			status = domain.ProductStatusInactive
-		}
-		product = domain.ReconstructProduct(
-			dto.ID,
-			dto.Name,
-			dto.Description,
-			dto.Category,
-			basePrice,
-			discount,
-			status,
-			dto.ArchivedAt,
-			dto.CreatedAt,
-			dto.UpdatedAt,
-		)
 	}
+
+	status := domain.ProductStatus(dto.Status)
+	if status != domain.ProductStatusActive && status != domain.ProductStatusInactive {
+		status = domain.ProductStatusInactive
+	}
+
+	product := domain.ReconstructProduct(
+		dto.ID,
+		dto.Name,
+		dto.Description,
+		dto.Category,
+		basePrice,
+		discount,
+		status,
+		dto.ArchivedAt,
+		dto.CreatedAt,
+		dto.UpdatedAt,
+	)
 
 	// Use pricing calculator
 	effectivePricePtr := q.calculator.CalculateEffectivePrice(product, now)

@@ -269,7 +269,7 @@ func parseDDLStatements(sql string) []string {
 // assertProductState verifies product state in database
 func (ts *testSetup) assertProductState(t *testing.T, productID string, expectedStatus string, expectedArchived bool) {
 	row, err := ts.spannerClient.Single().ReadRow(ts.ctx, m_product.TableName, spanner.Key{productID}, []string{
-		m_product.ID, m_product.Status, m_product.ArchivedAt,
+		m_product.ProductID, m_product.Status, m_product.ArchivedAt,
 	})
 	if err != nil {
 		t.Fatalf("Failed to read product: %v", err)
@@ -295,7 +295,7 @@ func (ts *testSetup) assertProductState(t *testing.T, productID string, expected
 // assertOutboxEvents verifies outbox events were created
 func (ts *testSetup) assertOutboxEvents(t *testing.T, expectedEventNames []string) {
 	stmt := spanner.Statement{
-		SQL: `SELECT event_name FROM outbox_events ORDER BY created_at`,
+		SQL: `SELECT event_type FROM outbox_events ORDER BY created_at`,
 	}
 	iter := ts.spannerClient.Single().Query(ts.ctx, stmt)
 	defer iter.Stop()
@@ -310,8 +310,8 @@ func (ts *testSetup) assertOutboxEvents(t *testing.T, expectedEventNames []strin
 			t.Fatalf("Failed to iterate events: %v", err)
 		}
 		var eventName string
-		if err := row.ColumnByName("event_name", &eventName); err != nil {
-			t.Fatalf("Failed to read event_name: %v", err)
+		if err := row.ColumnByName("event_type", &eventName); err != nil {
+			t.Fatalf("Failed to read event_type: %v", err)
 		}
 		eventNames = append(eventNames, eventName)
 	}
@@ -649,10 +649,11 @@ func TestOutboxEventCreation(t *testing.T) {
 	productID := createResp.ProductID
 
 	// Verify outbox event was created
+	// Use TO_JSON_STRING to convert JSON column to string for reading
 	stmt := spanner.Statement{
-		SQL: `SELECT event_name, event_data FROM outbox_events WHERE event_name = @eventName`,
+		SQL: `SELECT event_type, TO_JSON_STRING(payload) as payload_str FROM outbox_events WHERE event_type = @eventType`,
 		Params: map[string]interface{}{
-			"eventName": "product_created",
+			"eventType": "product_created",
 		},
 	}
 	iter := ts.spannerClient.Single().Query(ts.ctx, stmt)
@@ -661,22 +662,25 @@ func TestOutboxEventCreation(t *testing.T) {
 	var found bool
 	for {
 		row, err := iter.Next()
-		if err != nil {
+		if err == iterator.Done {
 			break
+		}
+		if err != nil {
+			t.Fatalf("Failed to iterate events: %v", err)
 		}
 		found = true
 
-		var eventName, eventData string
-		if err := row.ColumnByName("event_name", &eventName); err != nil {
-			t.Fatalf("Failed to read event_name: %v", err)
+		var eventType, payloadStr string
+		if err := row.ColumnByName("event_type", &eventType); err != nil {
+			t.Fatalf("Failed to read event_type: %v", err)
 		}
-		if err := row.ColumnByName("event_data", &eventData); err != nil {
-			t.Fatalf("Failed to read event_data: %v", err)
+		if err := row.ColumnByName("payload_str", &payloadStr); err != nil {
+			t.Fatalf("Failed to read payload: %v", err)
 		}
 
-		// Verify event data contains product ID
-		if !strings.Contains(eventData, productID) {
-			t.Errorf("Event data should contain product ID %s, got: %s", productID, eventData)
+		// Verify event payload contains product ID
+		if !strings.Contains(payloadStr, productID) {
+			t.Errorf("Event payload should contain product ID %s, got: %s", productID, payloadStr)
 		}
 	}
 
