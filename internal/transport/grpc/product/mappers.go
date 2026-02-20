@@ -34,8 +34,7 @@ func DomainMoneyToProto(domainMoney *domain.Money) *pb.Money {
 	// Convert to int64 (truncate)
 	amount, _ := cents.Float64()
 	return &pb.Money{
-		Amount:   int64(amount),
-		Currency: "USD", // Default currency, could be stored separately
+		Amount: int64(amount),
 	}
 }
 
@@ -49,9 +48,20 @@ func BigRatToProtoMoney(rat *big.Rat) *pb.Money {
 	// Convert to int64 (truncate)
 	amount, _ := cents.Float64()
 	return &pb.Money{
-		Amount:   int64(amount),
-		Currency: "USD",
+		Amount: int64(amount),
 	}
+}
+
+// BigRatToInt64 converts *big.Rat to int64 (cents)
+func BigRatToInt64(rat *big.Rat) int64 {
+	if rat == nil {
+		return 0
+	}
+	// Convert to cents: multiply by 100
+	cents := new(big.Rat).Mul(rat, big.NewRat(100, 1))
+	// Convert to int64 (truncate)
+	amount, _ := cents.Float64()
+	return int64(amount)
 }
 
 // ProtoDiscountToDomain converts proto Discount to domain Discount

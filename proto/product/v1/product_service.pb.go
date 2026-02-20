@@ -26,9 +26,7 @@ const (
 type Money struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Amount in smallest currency unit (e.g., cents for USD)
-	Amount int64 `protobuf:"varint,1,opt,name=amount,proto3" json:"amount,omitempty"`
-	// Currency code (e.g., "USD", "EUR")
-	Currency      string `protobuf:"bytes,2,opt,name=currency,proto3" json:"currency,omitempty"`
+	Amount        int64 `protobuf:"varint,1,opt,name=amount,proto3" json:"amount,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -68,13 +66,6 @@ func (x *Money) GetAmount() int64 {
 		return x.Amount
 	}
 	return 0
-}
-
-func (x *Money) GetCurrency() string {
-	if x != nil {
-		return x.Currency
-	}
-	return ""
 }
 
 // Discount represents a discount value object
@@ -1174,10 +1165,9 @@ var File_proto_product_v1_product_service_proto protoreflect.FileDescriptor
 const file_proto_product_v1_product_service_proto_rawDesc = "" +
 	"\n" +
 	"&proto/product/v1/product_service.proto\x12\n" +
-	"product.v1\x1a\x1fgoogle/protobuf/timestamp.proto\";\n" +
+	"product.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x1f\n" +
 	"\x05Money\x12\x16\n" +
-	"\x06amount\x18\x01 \x01(\x03R\x06amount\x12\x1a\n" +
-	"\bcurrency\x18\x02 \x01(\tR\bcurrency\"\xb7\x01\n" +
+	"\x06amount\x18\x01 \x01(\x03R\x06amount\"\xb7\x01\n" +
 	"\bDiscount\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12)\n" +
 	"\x06amount\x18\x02 \x01(\v2\x11.product.v1.MoneyR\x06amount\x129\n" +
