@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+package product.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "catalog-proj/proto/product/v1;productv1";
+
+// ProductService defines the gRPC service for product operations
+service ProductService {
+  // CreateProduct creates a new product
+  rpc CreateProduct(CreateProductRequest) returns (CreateProductResponse);
+  
+  // UpdateProduct updates an existing product
+  rpc UpdateProduct(UpdateProductRequest) returns (UpdateProductResponse);
+  
+  // GetProduct retrieves a single product by ID
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse);
+  
+  // ListProducts retrieves a list of products with optional filters
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
+  
+  // ApplyDiscount applies a discount to a product
+  rpc ApplyDiscount(ApplyDiscountRequest) returns (ApplyDiscountResponse);
+  
+  // RemoveDiscount removes a discount from a product
+  rpc RemoveDiscount(RemoveDiscountRequest) returns (RemoveDiscountResponse);
+  
+  // ActivateProduct activates a product
+  rpc ActivateProduct(ActivateProductRequest) returns (ActivateProductResponse);
+  
+  // DeactivateProduct deactivates a product
+  rpc DeactivateProduct(DeactivateProductRequest) returns (DeactivateProductResponse);
+  
+  // ArchiveProduct archives a product
+  rpc ArchiveProduct(ArchiveProductRequest) returns (ArchiveProductResponse);
+}
+
+// Money represents a monetary value
+message Money {
+  // Amount in smallest currency unit (e.g., cents for USD)
+  int64 amount = 1;
+}
+
+// Discount represents a discount value object
+message Discount {
+  string id = 1;
+  Money amount = 2; // Percentage as decimal (e.g., 0.10 = 10%)
+  google.protobuf.Timestamp start_date = 3;
+  google.protobuf.Timestamp end_date = 4;
+}
+
+// Product represents a product entity
+message Product {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string category = 4;
+  Money base_price = 5;
+  Money effective_price = 6; // Calculated price after discount
+  Discount discount = 7;
+  string status = 8; // "active" or "inactive"
+  google.protobuf.Timestamp archived_at = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// CreateProductRequest represents the request to create a product
+message CreateProductRequest {
+  string name = 1;
+  string description = 2;
+  string category = 3;
+  Money base_price = 4;
+}
+
+// CreateProductResponse represents the response from creating a product
+message CreateProductResponse {
+  string product_id = 1;
+}
+
+// UpdateProductRequest represents the request to update a product
+message UpdateProductRequest {
+  string product_id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional string category = 4;
+}
+
+// UpdateProductResponse represents the response from updating a product
+message UpdateProductResponse {
+  string product_id = 1;
+}
+
+// GetProductRequest represents the request to get a product
+message GetProductRequest {
+  string product_id = 1;
+}
+
+// GetProductResponse represents the response from getting a product
+message GetProductResponse {
+  Product product = 1;
+}
+
+// ListProductsRequest represents the request to list products
+message ListProductsRequest {
+  optional string category = 1;
+  optional string status = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+// ListProductsResponse represents the response from listing products
+message ListProductsResponse {
+  repeated Product products = 1;
+  int32 total = 2;
+}
+
+// ApplyDiscountRequest represents the request to apply a discount
+message ApplyDiscountRequest {
+  string product_id = 1;
+  Discount discount = 2;
+}
+
+// ApplyDiscountResponse represents the response from applying a discount
+message ApplyDiscountResponse {
+  string product_id = 1;
+}
+
+// RemoveDiscountRequest represents the request to remove a discount
+message RemoveDiscountRequest {
+  string product_id = 1;
+}
+
+// RemoveDiscountResponse represents the response from removing a discount
+message RemoveDiscountResponse {
+  string product_id = 1;
+}
+
+// ActivateProductRequest represents the request to activate a product
+message ActivateProductRequest {
+  string product_id = 1;
+}
+
+// ActivateProductResponse represents the response from activating a product
+message ActivateProductResponse {
+  string product_id = 1;
+}
+
+// DeactivateProductRequest represents the request to deactivate a product
+message DeactivateProductRequest {
+  string product_id = 1;
+}
+
+// DeactivateProductResponse represents the response from deactivating a product
+message DeactivateProductResponse {
+  string product_id = 1;
+}
+
+// ArchiveProductRequest represents the request to archive a product
+message ArchiveProductRequest {
+  string product_id = 1;
+}
+
+// ArchiveProductResponse represents the response from archiving a product
+message ArchiveProductResponse {
+  string product_id = 1;
+}
