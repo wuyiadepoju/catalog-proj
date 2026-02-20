@@ -39,9 +39,6 @@ The gRPC server starts on port `50051` (default). Emulator available at `localho
 ## Testing
 
 ```bash
-# Run all tests
-make test
-
 # Run E2E tests only
 go test ./tests/e2e/... -v
 
