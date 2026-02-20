@@ -13,6 +13,10 @@ A production-ready Product Catalog Service implementing Domain-Driven Design (DD
   go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
   export PATH=$PATH:$(go env GOPATH)/bin
   ```
+- **CommitPlan dependency:**
+  ```bash
+  go get github.com/wuyiadepoju/commitplan
+  ```
 
 ## Quick Start
 
