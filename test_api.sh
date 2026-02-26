@@ -149,9 +149,22 @@ fi
 print_section "4. PRICING RULES - Apply Discounts"
 
 # Get current date and future dates for discount periods
+# Use 2026-02-25 as base date for discounts (minimum required date)
+BASE_DATE="2026-02-25T00:00:00Z"
 CURRENT_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-FUTURE_START=$(date -u -d "+1 day" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+1d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2025-01-01T00:00:00Z")
-FUTURE_END=$(date -u -d "+30 days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+30d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2025-12-31T23:59:59Z")
+# Use base date if current date is before 2026-02-25, otherwise use current date
+if [[ "$CURRENT_DATE" < "$BASE_DATE" ]]; then
+    CURRENT_DATE="$BASE_DATE"
+fi
+FUTURE_START=$(date -u -d "+1 day" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+1d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2026-02-26T00:00:00Z")
+FUTURE_END=$(date -u -d "+30 days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+30d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2026-12-31T23:59:59Z")
+# Ensure dates are not before base date
+if [[ "$FUTURE_START" < "$BASE_DATE" ]]; then
+    FUTURE_START="2026-02-26T00:00:00Z"
+fi
+if [[ "$FUTURE_END" < "$BASE_DATE" ]]; then
+    FUTURE_END="2026-12-31T23:59:59Z"
+fi
 
 if [ -n "$PRODUCT_ID_1" ]; then
     print_test "Apply 15% discount to Product 1 (Laptop) - Valid period"
@@ -318,8 +331,16 @@ fi
 # ============================================================================
 print_section "11. PRICING RULES - Discount with Future Date Range"
 
-FUTURE_START_DATE=$(date -u -d "+5 days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+5d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2025-01-05T00:00:00Z")
-FUTURE_END_DATE=$(date -u -d "+60 days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+60d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2025-02-28T23:59:59Z")
+FUTURE_START_DATE=$(date -u -d "+5 days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+5d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2026-03-01T00:00:00Z")
+FUTURE_END_DATE=$(date -u -d "+60 days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+60d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2026-04-25T23:59:59Z")
+# Ensure dates are not before base date
+BASE_DATE="2026-02-25T00:00:00Z"
+if [[ "$FUTURE_START_DATE" < "$BASE_DATE" ]]; then
+    FUTURE_START_DATE="2026-03-01T00:00:00Z"
+fi
+if [[ "$FUTURE_END_DATE" < "$BASE_DATE" ]]; then
+    FUTURE_END_DATE="2026-04-25T23:59:59Z"
+fi
 
 if [ -n "$PRODUCT_ID_3" ]; then
     print_test "Apply discount with future start date to Product 3"
@@ -376,12 +397,12 @@ if [ -n "$PRODUCT_ID_4" ]; then
     print_test "Activate Product 4"
     grpcurl -plaintext -d "{\"product_id\": \"$PRODUCT_ID_4\"}" "$GRPC_HOST" "$SERVICE/ActivateProduct"
     
-    print_test "Apply 13.33% discount (testing precise calculation)"
+    print_test "Apply 13% discount (testing discount calculation)"
     grpcurl -plaintext -d "{
       \"product_id\": \"$PRODUCT_ID_4\",
       \"discount\": {
-        \"id\": \"discount-precise-1333\",
-        \"amount\": {\"amount\": \"1333\"},
+        \"id\": \"discount-13\",
+        \"amount\": {\"amount\": \"13\"},
         \"start_date\": \"$CURRENT_DATE\",
         \"end_date\": \"$FUTURE_END\"
       }

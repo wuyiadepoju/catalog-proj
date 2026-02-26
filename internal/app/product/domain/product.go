@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type ProductStatus string
 
@@ -61,6 +64,14 @@ func NewProduct(id, name, description, category string, basePrice *Money, create
 
 // Business method (pure logic)
 func (p *Product) ApplyDiscount(discount *Discount, now time.Time) error {
+	if discount == nil {
+		return ErrInvalidDiscountAmount
+	}
+
+	// Validate discount structure
+	if err := discount.Validate(); err != nil {
+		return err
+	}
 
 	if p.status != ProductStatusActive {
 		return ErrProductNotActive
@@ -168,6 +179,31 @@ func ReconstructProduct(
 func (p *Product) UpdateDetails(name, description, category string, now time.Time) error {
 	if p.archivedAt != nil {
 		return ErrProductAlreadyArchived
+	}
+
+	// Validate inputs
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ErrInvalidProductName
+	}
+	if len(name) > 255 {
+		return ErrInvalidProductName
+	}
+
+	description = strings.TrimSpace(description)
+	if description == "" {
+		return ErrInvalidProductDescription
+	}
+	if len(description) > 1000 {
+		return ErrInvalidProductDescription
+	}
+
+	category = strings.TrimSpace(category)
+	if category == "" {
+		return ErrInvalidProductCategory
+	}
+	if len(category) > 100 {
+		return ErrInvalidProductCategory
 	}
 
 	changedFields := []string{}

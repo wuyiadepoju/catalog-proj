@@ -69,7 +69,10 @@ func (i *Interactor) Execute(ctx context.Context, req *Request) (*Response, erro
 	// 4. Collect events
 	events := product.DomainEvents()
 	for _, event := range events {
-		outboxMut := i.eventToOutboxMutation(event, now)
+		outboxMut, err := i.eventToOutboxMutation(event, now)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create outbox event: %w", err)
+		}
 		if outboxMut != nil {
 			plan.Add(outboxMut)
 		}
@@ -89,10 +92,10 @@ func (i *Interactor) Execute(ctx context.Context, req *Request) (*Response, erro
 }
 
 // eventToOutboxMutation converts a domain event to an outbox mutation
-func (i *Interactor) eventToOutboxMutation(event domain.DomainEvent, now time.Time) *spanner.Mutation {
+func (i *Interactor) eventToOutboxMutation(event domain.DomainEvent, now time.Time) (*spanner.Mutation, error) {
 	eventData, err := json.Marshal(event.EventData())
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to marshal event data for event %s: %w", event.EventName(), err)
 	}
 
 	// Extract aggregate_id from event data (product_id)
@@ -113,5 +116,5 @@ func (i *Interactor) eventToOutboxMutation(event domain.DomainEvent, now time.Ti
 		ProcessedAt: nil,
 	}
 
-	return outboxEvent.InsertMut()
+	return outboxEvent.InsertMut(), nil
 }

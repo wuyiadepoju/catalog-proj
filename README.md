@@ -110,18 +110,23 @@ Follows **Domain-Driven Design (DDD)** and **Clean Architecture** with strict la
 ```bash
 # Install: go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
 
-# Create product
+# Create product (products are created as inactive by default)
 grpcurl -plaintext -d '{"name":"Laptop","description":"High-performance","category":"electronics","base_price":{"amount":"99999"}}' localhost:50051 product.v1.ProductService/CreateProduct
 
+# Activate product (required before applying discount)
+grpcurl -plaintext -d '{"product_id":"YOUR_PRODUCT_ID"}' localhost:50051 product.v1.ProductService/ActivateProduct
+
+# Apply discount (dates must be from 2026-02-25T00:00:00Z onward, amount 0-100 for 0-100%)
+grpcurl -plaintext -d '{"product_id":"YOUR_PRODUCT_ID","discount":{"id":"discount-1","amount":{"amount":"10"},"start_date":"2026-02-25T00:00:00Z","end_date":"2026-12-31T23:59:59Z"}}' localhost:50051 product.v1.ProductService/ApplyDiscount
+
 # Get product
-grpcurl -plaintext -d '{"product_id":"uuid"}' localhost:50051 product.v1.ProductService/GetProduct
+grpcurl -plaintext -d '{"product_id":"YOUR_PRODUCT_ID"}' localhost:50051 product.v1.ProductService/GetProduct
 
 # List products
 grpcurl -plaintext -d '{"limit":10,"offset":0}' localhost:50051 product.v1.ProductService/ListProducts
-
-# Apply discount
-grpcurl -plaintext -d '{"product_id":"uuid","discount":{"id":"discount-1","amount":{"amount":"1000"},"start_date":"2024-01-01T00:00:00Z","end_date":"2024-12-31T23:59:59Z"}}' localhost:50051 product.v1.ProductService/ApplyDiscount
 ```
+
+**Note:** Replace `YOUR_PRODUCT_ID` with the actual product ID returned from CreateProduct. See `API_USAGE_EXAMPLES.md` for comprehensive examples.
 
 ## Troubleshooting
 
@@ -129,6 +134,19 @@ grpcurl -plaintext -d '{"product_id":"uuid","discount":{"id":"discount-1","amoun
 - **protoc-gen-go not found:** Install Go plugins (see Prerequisites)
 - **Spanner connection failed:** Check `docker ps | grep spanner-emulator`, restart with `docker compose down && docker compose up -d`
 - **Database not found:** Run `make migrate`
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed list of changes and improvements.
+
+### Recent Improvements (2026-02-25)
+
+- ✅ **Error Handling**: Fixed silent failures in event-to-outbox mutation functions
+- ✅ **Test Reliability**: Added context timeouts to prevent hanging
+- ✅ **Input Validation**: Comprehensive validation for prices, strings, and discounts
+- ✅ **Precision**: Fixed money conversion precision issues
+- ✅ **Domain Validation**: Added domain-level validation and new error types
+- ✅ **Documentation**: Updated examples with correct discount amounts (0-100%) and dates (2026-02-25+)
 
 ## Production Considerations
 

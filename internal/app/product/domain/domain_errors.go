@@ -40,4 +40,28 @@ var (
 		Code:    "product_has_active_discount",
 		Message: "cannot deactivate product with active discount",
 	}
+	ErrInvalidProductName = &DomainError{
+		Code:    "invalid_product_name",
+		Message: "product name cannot be empty",
+	}
+	ErrInvalidProductDescription = &DomainError{
+		Code:    "invalid_product_description",
+		Message: "product description cannot be empty",
+	}
+	ErrInvalidProductCategory = &DomainError{
+		Code:    "invalid_product_category",
+		Message: "product category cannot be empty",
+	}
+	ErrInvalidDiscountID = &DomainError{
+		Code:    "invalid_discount_id",
+		Message: "discount id cannot be empty",
+	}
+	ErrInvalidDiscountAmount = &DomainError{
+		Code:    "invalid_discount_amount",
+		Message: "discount amount must be between 0 and 100%",
+	}
+	ErrInvalidDiscountDateRange = &DomainError{
+		Code:    "invalid_discount_date_range",
+		Message: "discount start date must be before end date",
+	}
 )

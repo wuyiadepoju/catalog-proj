@@ -31,10 +31,21 @@ func DomainMoneyToProto(domainMoney *domain.Money) *pb.Money {
 	// Convert to cents: multiply by 100
 	rat := *domainMoney
 	cents := new(big.Rat).Mul(rat, big.NewRat(100, 1))
-	// Convert to int64 (truncate)
-	amount, _ := cents.Float64()
+	
+	// Use exact conversion when possible (when denominator is 1)
+	// Otherwise, use Float64() and round to nearest int
+	var amount int64
+	if cents.Denom().IsInt64() && cents.Denom().Int64() == 1 {
+		// Exact conversion
+		amount = cents.Num().Int64()
+	} else {
+		// Approximate conversion - round to nearest
+		amountFloat, _ := cents.Float64()
+		amount = int64(amountFloat + 0.5) // Round to nearest
+	}
+	
 	return &pb.Money{
-		Amount: int64(amount),
+		Amount: amount,
 	}
 }
 
@@ -45,10 +56,21 @@ func BigRatToProtoMoney(rat *big.Rat) *pb.Money {
 	}
 	// Convert to cents: multiply by 100
 	cents := new(big.Rat).Mul(rat, big.NewRat(100, 1))
-	// Convert to int64 (truncate)
-	amount, _ := cents.Float64()
+	
+	// Use exact conversion when possible (when denominator is 1)
+	// Otherwise, use Float64() and round to nearest int
+	var amount int64
+	if cents.Denom().IsInt64() && cents.Denom().Int64() == 1 {
+		// Exact conversion
+		amount = cents.Num().Int64()
+	} else {
+		// Approximate conversion - round to nearest
+		amountFloat, _ := cents.Float64()
+		amount = int64(amountFloat + 0.5) // Round to nearest
+	}
+	
 	return &pb.Money{
-		Amount: int64(amount),
+		Amount: amount,
 	}
 }
 
@@ -59,9 +81,16 @@ func BigRatToInt64(rat *big.Rat) int64 {
 	}
 	// Convert to cents: multiply by 100
 	cents := new(big.Rat).Mul(rat, big.NewRat(100, 1))
-	// Convert to int64 (truncate)
-	amount, _ := cents.Float64()
-	return int64(amount)
+	
+	// Use exact conversion when possible (when denominator is 1)
+	// Otherwise, use Float64() and round to nearest int
+	if cents.Denom().IsInt64() && cents.Denom().Int64() == 1 {
+		// Exact conversion
+		return cents.Num().Int64()
+	}
+	// Approximate conversion - round to nearest
+	amountFloat, _ := cents.Float64()
+	return int64(amountFloat + 0.5) // Round to nearest
 }
 
 // ProtoDiscountToDomain converts proto Discount to domain Discount

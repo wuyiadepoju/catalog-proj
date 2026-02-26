@@ -43,11 +43,24 @@ const (
 	testProject  = "test-project"
 	testInstance = "test-instance"
 	emulatorHost = "localhost:9010"
+	// baseDiscountDate is the minimum date for discounts (2026-02-25T00:00:00Z)
+	baseDiscountDateStr = "2026-02-25T00:00:00Z"
 )
+
+// getDiscountTime returns a time that is at least baseDiscountDate
+func getDiscountTime() time.Time {
+	baseDate, _ := time.Parse(time.RFC3339, baseDiscountDateStr)
+	now := time.Now()
+	if now.Before(baseDate) {
+		return baseDate
+	}
+	return now
+}
 
 // testSetup holds test dependencies
 type testSetup struct {
 	ctx               context.Context
+	cancel            context.CancelFunc
 	database          string
 	spannerClient     *spanner.Client
 	adminClient       *admin.DatabaseAdminClient
@@ -65,7 +78,9 @@ type testSetup struct {
 
 // setupTest creates a test database and initializes all dependencies
 func setupTest(t *testing.T) *testSetup {
-	ctx := context.Background()
+	// Create context with timeout for setup operations to prevent hanging
+	setupCtx, setupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer setupCancel()
 
 	// Set emulator host
 	os.Setenv("SPANNER_EMULATOR_HOST", emulatorHost)
@@ -75,29 +90,29 @@ func setupTest(t *testing.T) *testSetup {
 	dbName := fmt.Sprintf("test-db-%s", uuid.New().String()[:8])
 	database := fmt.Sprintf("projects/%s/instances/%s/databases/%s", testProject, testInstance, dbName)
 
-	// Create admin client
-	adminClient, err := admin.NewDatabaseAdminClient(ctx)
+	// Create admin client with timeout context
+	adminClient, err := admin.NewDatabaseAdminClient(setupCtx)
 	if err != nil {
-		t.Fatalf("Failed to create admin client: %v", err)
+		t.Fatalf("Failed to create admin client: %v. Make sure Spanner emulator is running (docker compose up -d)", err)
 	}
 
 	// Create instance if it doesn't exist (for emulator)
 	instanceName := fmt.Sprintf("projects/%s/instances/%s", testProject, testInstance)
 	projectName := fmt.Sprintf("projects/%s", testProject)
 
-	instanceAdminClient, err := instanceadmin.NewInstanceAdminClient(ctx)
+	instanceAdminClient, err := instanceadmin.NewInstanceAdminClient(setupCtx)
 	if err != nil {
 		t.Fatalf("Failed to create instance admin client: %v", err)
 	}
 	defer instanceAdminClient.Close()
 
-	_, err = instanceAdminClient.GetInstance(ctx, &instancepb.GetInstanceRequest{
+	_, err = instanceAdminClient.GetInstance(setupCtx, &instancepb.GetInstanceRequest{
 		Name: instanceName,
 	})
 	if err != nil {
 		if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
 			// Instance doesn't exist, create it
-			op, err := instanceAdminClient.CreateInstance(ctx, &instancepb.CreateInstanceRequest{
+			op, err := instanceAdminClient.CreateInstance(setupCtx, &instancepb.CreateInstanceRequest{
 				Parent:     projectName,
 				InstanceId: testInstance,
 				Instance: &instancepb.Instance{
@@ -107,8 +122,11 @@ func setupTest(t *testing.T) *testSetup {
 			if err != nil {
 				t.Fatalf("Failed to create instance: %v", err)
 			}
-			_, err = op.Wait(ctx)
+			_, err = op.Wait(setupCtx)
 			if err != nil {
+				if setupCtx.Err() == context.DeadlineExceeded {
+					t.Fatalf("Timeout waiting for instance creation. Is Spanner emulator running? (docker compose up -d)")
+				}
 				t.Fatalf("Failed to wait for instance creation: %v", err)
 			}
 		} else {
@@ -117,7 +135,7 @@ func setupTest(t *testing.T) *testSetup {
 	}
 
 	// Create database
-	op, err := adminClient.CreateDatabase(ctx, &databasepb.CreateDatabaseRequest{
+	op, err := adminClient.CreateDatabase(setupCtx, &databasepb.CreateDatabaseRequest{
 		Parent:          instanceName,
 		CreateStatement: fmt.Sprintf("CREATE DATABASE `%s`", dbName),
 	})
@@ -125,27 +143,35 @@ func setupTest(t *testing.T) *testSetup {
 		t.Fatalf("Failed to create database: %v", err)
 	}
 
-	// Wait for database creation
-	db, err := op.Wait(ctx)
+	// Wait for database creation with timeout
+	db, err := op.Wait(setupCtx)
 	if err != nil {
+		if setupCtx.Err() == context.DeadlineExceeded {
+			t.Fatalf("Timeout waiting for database creation. Is Spanner emulator running? (docker compose up -d)")
+		}
 		t.Fatalf("Failed to wait for database creation: %v", err)
 	}
 	database = db.Name
 
 	// Run migrations
-	if err := runMigrations(ctx, adminClient, database); err != nil {
+	if err := runMigrations(setupCtx, adminClient, database); err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
+
+	// Create a background context for test execution (not canceled when setup returns)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// Create Spanner client
 	spannerClient, err := spanner.NewClient(ctx, database)
 	if err != nil {
+		cancel()
 		t.Fatalf("Failed to create Spanner client: %v", err)
 	}
 
 	// Create service options to get all dependencies
 	opts, err := services.NewOptions(ctx, database)
 	if err != nil {
+		cancel()
 		t.Fatalf("Failed to create service options: %v", err)
 	}
 
@@ -172,6 +198,7 @@ func setupTest(t *testing.T) *testSetup {
 
 	return &testSetup{
 		ctx:               ctx,
+		cancel:            cancel,
 		database:          database,
 		spannerClient:     spannerClient,
 		adminClient:       adminClient,
@@ -190,13 +217,22 @@ func setupTest(t *testing.T) *testSetup {
 
 // teardownTest cleans up test resources
 func (ts *testSetup) teardownTest(t *testing.T) {
+	// Cancel context first to stop any ongoing operations
+	if ts.cancel != nil {
+		ts.cancel()
+	}
+
 	if ts.spannerClient != nil {
 		ts.spannerClient.Close()
 	}
 
 	if ts.adminClient != nil {
+		// Use a fresh context for cleanup operations
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanupCancel()
+
 		// Drop database
-		if err := ts.adminClient.DropDatabase(ts.ctx, &databasepb.DropDatabaseRequest{
+		if err := ts.adminClient.DropDatabase(cleanupCtx, &databasepb.DropDatabaseRequest{
 			Database: ts.database,
 		}); err != nil {
 			t.Logf("Failed to drop database: %v", err)
@@ -226,7 +262,14 @@ func runMigrations(ctx context.Context, adminClient *admin.DatabaseAdminClient, 
 		return fmt.Errorf("failed to start DDL operation: %w", err)
 	}
 
-	return op.Wait(ctx)
+	err = op.Wait(ctx)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("timeout waiting for migrations. Is Spanner emulator running? (docker compose up -d)")
+		}
+		return fmt.Errorf("failed to wait for migrations: %w", err)
+	}
+	return nil
 }
 
 // stringPtr returns a pointer to the given string
@@ -460,9 +503,6 @@ func TestDiscountApplicationFlow(t *testing.T) {
 		t.Fatalf("Failed to create product: %v", err)
 	}
 	productID := createResp.ProductID
-	if err != nil {
-		t.Fatalf("Failed to create product: %v", err)
-	}
 
 	// Activate product first (required for discount)
 	_, err = ts.activateProduct.Execute(ts.ctx, &activate_product.Request{ProductID: productID})
@@ -580,7 +620,7 @@ func TestBusinessRuleValidation(t *testing.T) {
 	productID := createResp.ProductID
 
 	// Try to apply discount to Inactive product (should fail)
-	now := time.Now()
+	now := getDiscountTime()
 	discountAmount := moneyFromRat(big.NewRat(10, 100)) // 10% discount (0.10 as decimal)
 	discountReq := &apply_discount.Request{
 		ProductID: productID,
@@ -828,7 +868,7 @@ func TestGetProductWithEffectivePrice(t *testing.T) {
 	}
 
 	// Apply discount
-	now := time.Now()
+	now := getDiscountTime()
 	discountAmount := domain.NewMoney(20) // 20% discount (0.20 as decimal)
 	discountReq := &apply_discount.Request{
 		ProductID: productID,

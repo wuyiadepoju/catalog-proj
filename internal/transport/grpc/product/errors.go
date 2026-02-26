@@ -34,6 +34,18 @@ func MapDomainError(err error) error {
 		return status.Errorf(codes.InvalidArgument, domainErr.Message)
 	case domain.ErrProductHasActiveDiscount.Code:
 		return status.Errorf(codes.FailedPrecondition, domainErr.Message)
+	case domain.ErrInvalidProductName.Code:
+		return status.Errorf(codes.InvalidArgument, domainErr.Message)
+	case domain.ErrInvalidProductDescription.Code:
+		return status.Errorf(codes.InvalidArgument, domainErr.Message)
+	case domain.ErrInvalidProductCategory.Code:
+		return status.Errorf(codes.InvalidArgument, domainErr.Message)
+	case domain.ErrInvalidDiscountID.Code:
+		return status.Errorf(codes.InvalidArgument, domainErr.Message)
+	case domain.ErrInvalidDiscountAmount.Code:
+		return status.Errorf(codes.InvalidArgument, domainErr.Message)
+	case domain.ErrInvalidDiscountDateRange.Code:
+		return status.Errorf(codes.InvalidArgument, domainErr.Message)
 	default:
 		return status.Errorf(codes.Internal, "unexpected error: %s", domainErr.Message)
 	}

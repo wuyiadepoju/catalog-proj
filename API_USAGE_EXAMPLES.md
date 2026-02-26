@@ -24,14 +24,17 @@ This document provides comprehensive `grpcurl` examples for all API endpoints ba
 - Example: `$2499.99` = `249999` cents
 
 ### Discount Format
-- Discount percentage is stored as a decimal in cents
+- Discount percentage is stored as cents (0-100 range)
 - Example: `10%` discount = `10` (represents 0.10 = 10%)
 - Example: `25%` discount = `25` (represents 0.25 = 25%)
-- Example: `13.33%` discount = `1333` (represents 0.1333 = 13.33%)
+- Example: `100%` discount = `100` (represents 1.00 = 100%)
+- **Range:** 0-100 (representing 0% to 100%)
+- **Note:** For fractional percentages like 13.33%, use the closest whole number (13 or 14)
 
 ### Timestamp Format
 - Use RFC3339 format: `YYYY-MM-DDTHH:MM:SSZ`
-- Example: `2024-01-01T00:00:00Z`
+- Example: `2026-02-25T00:00:00Z`
+- **Note:** Discount dates should be from `2026-02-25T00:00:00Z` onward
 
 ---
 
@@ -76,7 +79,7 @@ grpcurl -plaintext -d '{
 
 ## 2. Product Management - Activate Products
 
-Products are created in `inactive` status. Activate them before applying discounts.
+**Important:** Products are created in `inactive` status by default. You **must** activate them before applying discounts, as discounts can only be applied to active products.
 
 ```bash
 # Activate a product
@@ -168,15 +171,20 @@ grpcurl -plaintext -d '{
 
 Apply percentage-based discounts with start/end dates. Only one active discount per product at a time.
 
+**Important Requirements:**
+- Product must be **active** before applying a discount (use `ActivateProduct` first)
+- Discount dates must be from **2026-02-25T00:00:00Z** onward
+- Only one active discount per product at a time
+
 ```bash
-# Apply 15% discount (valid from now to 30 days from now)
+# Apply 15% discount (valid from 2026-02-25 to end of year)
 grpcurl -plaintext -d '{
   "product_id": "550e8400-e29b-41d4-a716-446655440000",
   "discount": {
     "id": "discount-laptop-15",
     "amount": {"amount": "15"},
-    "start_date": "2024-01-01T00:00:00Z",
-    "end_date": "2024-12-31T23:59:59Z"
+    "start_date": "2026-02-25T00:00:00Z",
+    "end_date": "2026-12-31T23:59:59Z"
   }
 }' localhost:50051 product.v1.ProductService/ApplyDiscount
 
@@ -186,8 +194,8 @@ grpcurl -plaintext -d '{
   "discount": {
     "id": "discount-book-20",
     "amount": {"amount": "20"},
-    "start_date": "2024-01-01T00:00:00Z",
-    "end_date": "2024-12-31T23:59:59Z"
+    "start_date": "2026-02-25T00:00:00Z",
+    "end_date": "2026-12-31T23:59:59Z"
   }
 }' localhost:50051 product.v1.ProductService/ApplyDiscount
 
@@ -197,19 +205,19 @@ grpcurl -plaintext -d '{
   "discount": {
     "id": "discount-future",
     "amount": {"amount": "30"},
-    "start_date": "2025-01-05T00:00:00Z",
-    "end_date": "2025-02-28T23:59:59Z"
+    "start_date": "2026-03-01T00:00:00Z",
+    "end_date": "2026-03-31T23:59:59Z"
   }
 }' localhost:50051 product.v1.ProductService/ApplyDiscount
 
-# Apply precise discount (13.33%)
+# Apply 13% discount (for fractional percentages, use closest whole number)
 grpcurl -plaintext -d '{
   "product_id": "550e8400-e29b-41d4-a716-446655440000",
   "discount": {
-    "id": "discount-precise-1333",
-    "amount": {"amount": "1333"},
-    "start_date": "2024-01-01T00:00:00Z",
-    "end_date": "2024-12-31T23:59:59Z"
+    "id": "discount-13",
+    "amount": {"amount": "13"},
+    "start_date": "2026-02-25T00:00:00Z",
+    "end_date": "2026-12-31T23:59:59Z"
   }
 }' localhost:50051 product.v1.ProductService/ApplyDiscount
 ```
@@ -270,12 +278,12 @@ grpcurl -plaintext -d '{
     "discount": {
       "id": "discount-laptop-15",
       "amount": {"amount": 15},
-      "start_date": "2024-01-01T00:00:00Z",
-      "end_date": "2024-12-31T23:59:59Z"
+      "start_date": "2026-02-25T00:00:00Z",
+      "end_date": "2026-12-31T23:59:59Z"
     },
     "status": "active",
-    "created_at": "2024-01-01T10:00:00Z",
-    "updated_at": "2024-01-01T10:05:00Z"
+    "created_at": "2026-02-25T10:00:00Z",
+    "updated_at": "2026-02-25T10:05:00Z"
   }
 }
 ```
@@ -343,12 +351,12 @@ grpcurl -plaintext -d '{
       "discount": {
         "id": "discount-laptop-15",
         "amount": {"amount": 15},
-        "start_date": "2024-01-01T00:00:00Z",
-        "end_date": "2024-12-31T23:59:59Z"
+        "start_date": "2026-02-25T00:00:00Z",
+        "end_date": "2026-12-31T23:59:59Z"
       },
       "status": "active",
-      "created_at": "2024-01-01T10:00:00Z",
-      "updated_at": "2024-01-01T10:05:00Z"
+      "created_at": "2026-02-25T10:00:00Z",
+      "updated_at": "2026-02-25T10:05:00Z"
     }
   ],
   "total": 1
@@ -387,8 +395,8 @@ grpcurl -plaintext -d "{
   \"discount\": {
     \"id\": \"discount-10\",
     \"amount\": {\"amount\": \"10\"},
-    \"start_date\": \"2024-01-01T00:00:00Z\",
-    \"end_date\": \"2024-12-31T23:59:59Z\"
+    \"start_date\": \"2026-02-25T00:00:00Z\",
+    \"end_date\": \"2026-12-31T23:59:59Z\"
   }
 }" localhost:50051 product.v1.ProductService/ApplyDiscount
 
@@ -427,8 +435,8 @@ grpcurl -plaintext -d '{
   "discount": {
     "id": "discount-1",
     "amount": {"amount": "10"},
-    "start_date": "2024-01-01T00:00:00Z",
-    "end_date": "2024-12-31T23:59:59Z"
+    "start_date": "2026-02-25T00:00:00Z",
+    "end_date": "2026-12-31T23:59:59Z"
   }
 }' localhost:50051 product.v1.ProductService/ApplyDiscount
 ```
@@ -441,8 +449,8 @@ grpcurl -plaintext -d '{
   "discount": {
     "id": "discount-2",
     "amount": {"amount": "20"},
-    "start_date": "2024-01-01T00:00:00Z",
-    "end_date": "2024-12-31T23:59:59Z"
+    "start_date": "2026-02-25T00:00:00Z",
+    "end_date": "2026-12-31T23:59:59Z"
   }
 }' localhost:50051 product.v1.ProductService/ApplyDiscount
 ```
